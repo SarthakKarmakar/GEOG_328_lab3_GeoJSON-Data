@@ -1,1 +1,190 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <title>Custom Map</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        #container {
+            display: flex;
+            height: 100vh;
+            flex-direction: row;
+            align-items: stretch;
+        }
+        #side-panel {
+            flex-basis: 500px;
+            overflow-y: scroll;
+        }
+        #map {
+            flex-grow: 1;
+            min-width: 300px; /* Ensure the map has a minimum width */
+        }
+        button {
+            margin-bottom: 10px;
+        }
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid #ddd;
+        }
+        th,
+        td {
+            text-align: left;
+            padding: 16px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <main id="container">
+        <div id="side-panel">
+            <h2>Custom Data List</h2>
+            <button>Sort by Name</button>
+            <table>
+                <tr>
+                    <th>name</th>
+                    <th>property</th>
+                </tr>
+            </table>
+        </div>
+        <div id="map"></div>
+    </main>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiamFrb2J6aGFvIiwiYSI6ImNpcms2YWsyMzAwMmtmbG5icTFxZ3ZkdncifQ.P9MBej1xacybKcDN_jehvw';  // Replace with your actual Mapbox token
 
+        console.log('Initializing map...');
+        let map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            zoom: 10,
+            center: [-74.006, 40.7128] // Centered on New York City
+        });
+
+        map.on('load', function() {
+            console.log('Map loaded.');
+        });
+
+        async function geojsonFetch() {
+            try {
+                let response, parks, schools, table;
+
+                console.log('Fetching parks.geojson...');
+                response = await fetch('assets/parks.geojson');
+                if (!response.ok) {
+                    throw new Error('Failed to load parks.geojson');
+                }
+                parks = await response.json();
+                console.log('parks.geojson fetched successfully', parks);
+
+                console.log('Fetching schools.geojson...');
+                response = await fetch('assets/schools.geojson');
+                if (!response.ok) {
+                    throw new Error('Failed to load schools.geojson');
+                }
+                schools = await response.json();
+                console.log('schools.geojson fetched successfully', schools);
+
+                map.on('load', function() {
+                    console.log('Adding data sources and layers to the map...');
+                    map.addSource('parks', {
+                        type: 'geojson',
+                        data: parks
+                    });
+
+                    map.addLayer({
+                        'id': 'parks-layer',
+                        'type': 'circle',
+                        'source': 'parks',
+                        'paint': {
+                            'circle-radius': 8,
+                            'circle-stroke-width': 2,
+                            'circle-color': 'green',
+                            'circle-stroke-color': 'white'
+                        }
+                    });
+
+                    map.addSource('schools', {
+                        type: 'geojson',
+                        data: schools
+                    });
+
+                    map.addLayer({
+                        'id': 'schools-layer',
+                        'type': 'circle',
+                        'source': 'schools',
+                        'paint': {
+                            'circle-radius': 8,
+                            'circle-stroke-width': 2,
+                            'circle-color': 'blue',
+                            'circle-stroke-color': 'white'
+                        }
+                    });
+                    console.log('Data sources and layers added.');
+                });
+
+                table = document.getElementsByTagName("table")[0];
+                let row, cell1, cell2;
+
+                console.log('Adding parks data to the table...');
+                for (let i = 0; i < parks.features.length; i++) {
+                    console.log('Adding park:', parks.features[i].properties.name, parks.features[i].properties.area);
+                    row = table.insertRow(-1);
+                    cell1 = row.insertCell(0);
+                    cell2 = row.insertCell(1);
+                    cell1.innerHTML = parks.features[i].properties.name;
+                    cell2.innerHTML = parks.features[i].properties.area;
+                }
+
+                console.log('Adding schools data to the table...');
+                for (let i = 0; i < schools.features.length; i++) {
+                    console.log('Adding school:', schools.features[i].properties.name, schools.features[i].properties.students);
+                    row = table.insertRow(-1);
+                    cell1 = row.insertCell(0);
+                    cell2 = row.insertCell(1);
+                    cell1.innerHTML = schools.features[i].properties.name;
+                    cell2.innerHTML = schools.features[i].properties.students;
+                }
+            } catch (error) {
+                console.error('Error during geojsonFetch:', error.message);
+            }
+        }
+
+        geojsonFetch();
+
+        let btn = document.getElementsByTagName("button")[0];
+        btn.addEventListener('click', sortTable);
+
+        function sortTable(e) {
+            let table, rows, switching, i, x, y, shouldSwitch;
+            table = document.getElementsByTagName("table")[0];
+            switching = true;
+            while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("td")[0].innerHTML.toLowerCase();
+                    y = rows[i + 1].getElementsByTagName("td")[0].innerHTML.toLowerCase();
+                    if (x > y) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
